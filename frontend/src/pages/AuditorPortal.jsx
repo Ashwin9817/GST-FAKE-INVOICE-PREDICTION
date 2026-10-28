@@ -4,10 +4,10 @@ import {
   AlertCircle, Network, FileText, ShieldAlert,
   ArrowUpRight, ArrowDownLeft, Activity, Layers,
   RotateCcw, Loader2, ChevronRight, Info,
-  TrendingUp, AlertTriangle, Shield, CheckCircle2, BarChart3
+  TrendingUp, AlertTriangle, Shield, CheckCircle2, BarChart3, Settings
 } from 'lucide-react'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '')
 
 // ─── Risk Score Gauge ─────────────────────────────────────────────
 function RiskGauge({ score }) {
@@ -250,6 +250,10 @@ export default function AuditorPortal() {
   return (
     <div className="container">
       <div className="hero" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', padding: '0.35rem 0.9rem', borderRadius: '20px', fontSize: '0.78rem', color: '#a5b4fc', marginBottom: '1rem' }}>
+          <Settings size={14} className="animate-spin-slow" />
+          <span>Graph Intelligence Pipeline Active</span>
+        </div>
         <h2>Tax Auditor Forensic Portal</h2>
         <p>Inspect entity risk scores, 1–2 hop transaction graphs, loop closures, and explainable AI fraud alerts.</p>
       </div>

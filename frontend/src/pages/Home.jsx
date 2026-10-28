@@ -1,9 +1,12 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { Users, FileText, AlertTriangle, Network, ShieldCheck, Zap, GitFork, RotateCcw } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { Users, FileText, AlertTriangle, Network, ShieldCheck, Zap, GitFork, RotateCcw, User, Lock } from 'lucide-react'
 import StatsCard from '../components/StatsCard'
 
 export default function Home() {
+  const { user } = useAuth()
+
   return (
     <div className="container">
       {/* Hero Section */}
@@ -13,10 +16,13 @@ export default function Home() {
           <span>Graph Neural Network &amp; Isolation Forest Platform</span>
         </div>
         <h2>AI-Powered Graph GST Fraud Detection &amp; Risk Intelligence</h2>
-        <p>
-          Detecting circular trading, star-shaped collusion, split invoicing, and high-velocity fraud
-          through multi-hop business transaction graph embeddings and hybrid feature fusion.
-        </p>
+        
+        {user && (
+          <div style={{ marginTop: '1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.85rem' }}>
+            <User size={14} color="#a5b4fc" />
+            <span>Logged in as <strong style={{ color: '#a5b4fc' }}>{user.name}</strong> ({user.email})</span>
+          </div>
+        )}
       </div>
 
       {/* KPI Stats Row */}
@@ -27,9 +33,24 @@ export default function Home() {
         <StatsCard title="Graph Topology" value="GraphSAGE" subtext="64-Dim Node Embeddings" icon={Network} color="#10b981" />
       </div>
 
-      {/* Portal Entry Options */}
+      {/* Dual Portal Entry Options */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '20px', padding: '2rem', backdropFilter: 'blur(16px)' }}>
+        
+        {/* Auditor Portal Card */}
+        <div style={{
+          background: 'var(--bg-card)',
+          border: `1px solid ${user?.role === 'auditor' ? 'rgba(99,102,241,0.5)' : 'var(--border-glass)'}`,
+          borderRadius: '20px',
+          padding: '2rem',
+          backdropFilter: 'blur(16px)',
+          position: 'relative'
+        }}>
+          {user?.role === 'auditor' && (
+            <div style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#a5b4fc', fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '12px' }}>
+              Your Authorized Portal
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
             <div style={{ background: 'rgba(99, 102, 241, 0.2)', padding: '0.75rem', borderRadius: '12px' }}>
               <Network size={28} color="#6366f1" />
@@ -42,12 +63,34 @@ export default function Home() {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
             Explore 1-2 hop transaction graphs, detect circular loop closures, analyze GraphSAGE node embeddings, and inspect explainable alert breakdowns.
           </p>
-          <Link to="/auditor" className="btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>
-            Launch Auditor Portal &rarr;
-          </Link>
+          
+          {(!user || user.role === 'auditor') ? (
+            <Link to="/auditor" className="btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>
+              Launch Auditor Portal &rarr;
+            </Link>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-dim)', fontSize: '0.82rem' }}>
+              <Lock size={14} color="#f59e0b" />
+              <span>Requires Tax Auditor Clearance (`auditor@gmail.com`)</span>
+            </div>
+          )}
         </div>
 
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '20px', padding: '2rem', backdropFilter: 'blur(16px)' }}>
+        {/* MSME Supplier Risk Card */}
+        <div style={{
+          background: 'var(--bg-card)',
+          border: `1px solid ${user?.role === 'supplier' ? 'rgba(16,185,129,0.5)' : 'var(--border-glass)'}`,
+          borderRadius: '20px',
+          padding: '2rem',
+          backdropFilter: 'blur(16px)',
+          position: 'relative'
+        }}>
+          {user?.role === 'supplier' && (
+            <div style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.4)', color: '#34d399', fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '12px' }}>
+              Your Authorized Portal
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
             <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: '0.75rem', borderRadius: '12px' }}>
               <ShieldCheck size={28} color="#10b981" />
@@ -60,10 +103,19 @@ export default function Home() {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
             Allows small business buyers to verify supplier GSTIN risk status before issuing purchase orders or claiming Input Tax Credits (ITC).
           </p>
-          <Link to="/msme" className="btn-primary" style={{ display: 'inline-block', textDecoration: 'none', background: 'linear-gradient(135deg, #10b981, #059669)' }}>
-            Check Supplier Risk &rarr;
-          </Link>
+
+          {(!user || user.role === 'supplier') ? (
+            <Link to="/msme" className="btn-primary" style={{ display: 'inline-block', textDecoration: 'none', background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+              Check Supplier Risk &rarr;
+            </Link>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-dim)', fontSize: '0.82rem' }}>
+              <Lock size={14} color="#f59e0b" />
+              <span>Requires MSME Supplier Access (`supplier@gmail.com`)</span>
+            </div>
+          )}
         </div>
+
       </div>
 
       {/* Fraud Archetype Showcase */}

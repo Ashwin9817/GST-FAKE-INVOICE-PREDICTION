@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import EntitySearch from '../components/EntitySearch'
 import {
   AlertCircle, Network, FileText, ShieldAlert,
@@ -74,15 +74,55 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
 
   const centerNode = nodes.find(n => n.id === center) || { id: center, risk_category: 'HIGH' }
 
+  // 1-Hop direct trading partners of center
   const direct1HopSet = new Set()
   edges.forEach(e => {
     if (e.source === center) direct1HopSet.add(e.target)
     if (e.target === center) direct1HopSet.add(e.source)
   })
 
-  const hop1Nodes = nodes.filter(n => n.id !== center && direct1HopSet.has(n.id)).slice(0, 24)
+  // Filter 1-hop nodes (take up to 20 for clean distribution)
+  const hop1Nodes = nodes.filter(n => n.id !== center && direct1HopSet.has(n.id)).slice(0, 20)
   const hop1Set = new Set(hop1Nodes.map(n => n.id))
-  const hop2Nodes = nodes.filter(n => n.id !== center && !hop1Set.has(n.id)).slice(0, 32)
+
+  // Find 2-hop edges that connect between rendered hop1 nodes and outer entities
+  const candidate2HopEdges = edges.filter(e =>
+    (hop1Set.has(e.source) && !hop1Set.has(e.target) && e.target !== center) ||
+    (hop1Set.has(e.target) && !hop1Set.has(e.source) && e.source !== center)
+  )
+
+  // Map each candidate 2-hop node to ensure it has a direct edge to a rendered hop1 node
+  const connected2HopNodeIds = new Set()
+  candidate2HopEdges.forEach(e => {
+    if (hop1Set.has(e.source)) connected2HopNodeIds.add(e.target)
+    if (hop1Set.has(e.target)) connected2HopNodeIds.add(e.source)
+  })
+
+  // Select 2-hop nodes that are strictly connected to the network
+  const hop2Nodes = nodes
+    .filter(n => connected2HopNodeIds.has(n.id))
+    .sort((a, b) => {
+      const riskOrder = { HIGH: 3, MEDIUM: 2, LOW: 1 }
+      return (riskOrder[b.risk_category] || 0) - (riskOrder[a.risk_category] || 0)
+    })
+    .slice(0, 24)
+
+  const renderedNodes = [centerNode, ...hop1Nodes, ...hop2Nodes]
+  const renderedIdSet = new Set(renderedNodes.map(n => n.id))
+
+  // Include all edges connecting rendered nodes (never drop edges arbitrarily)
+  const validEdges = edges.filter(e => renderedIdSet.has(e.source) && renderedIdSet.has(e.target))
+
+  // Find all trading partners connected to selected node
+  const connectedNeighborIds = useMemo(() => {
+    if (!selectedNode) return new Set()
+    const set = new Set()
+    validEdges.forEach(e => {
+      if (e.source === selectedNode.id) set.add(e.target)
+      if (e.target === selectedNode.id) set.add(e.source)
+    })
+    return set
+  }, [selectedNode, validEdges])
 
   const positions = {}
   positions[center] = { x: cx, y: cy, hop: 0 }
@@ -99,10 +139,6 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
     positions[n.id] = { x: cx + r2 * Math.cos(angle), y: cy + r2 * Math.sin(angle), hop: 2 }
   })
 
-  const renderedNodes = [centerNode, ...hop1Nodes, ...hop2Nodes]
-  const renderedIdSet = new Set(renderedNodes.map(n => n.id))
-  const validEdges = edges.filter(e => renderedIdSet.has(e.source) && renderedIdSet.has(e.target)).slice(0, 80)
-
   return (
     <div style={{ position: 'relative', width: '100%', background: 'rgba(255,255,255,0.02)', borderRadius: '14px', border: '1px solid var(--border-glass)', overflow: 'hidden' }}>
       {/* Legend */}
@@ -110,11 +146,11 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
         <span style={{ fontWeight: 700, color: 'var(--text-dim)' }}>Legend:</span>
         <span>🟣 Target Entity</span>
         <span>🔵 1-Hop Partner (direct trade)</span>
-        <span>⚫ 2-Hop Extended Network</span>
+        <span>⚫ 2-Hop Connected Counterparty</span>
         <span>🔴 High-Risk Node</span>
         <span>─── Fraud Edge</span>
         <span style={{ opacity: 0.6 }}>─── Normal Edge</span>
-        <span style={{ marginLeft: 'auto', color: '#38bdf8', fontWeight: 600 }}>💡 Click node to inspect</span>
+        <span style={{ marginLeft: 'auto', color: '#38bdf8', fontWeight: 600 }}>💡 Click any node to highlight connections</span>
       </div>
 
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} onClick={() => setSelectedNode(null)}>
@@ -150,6 +186,7 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
           const isHigh = rCat === 'HIGH'
           const isMed = rCat === 'MEDIUM'
           const isSelected = selectedNode?.id === n.id
+          const isNeighborOfSelected = connectedNeighborIds.has(n.id)
           const r = isCenter ? 18 : isHop1 ? 9 : 6
           const fill = isCenter ? '#6366f1' : isHigh ? '#ef4444' : isMed ? '#f59e0b' : isHop1 ? '#3b82f6' : 'rgba(148,163,184,0.6)'
 
@@ -170,20 +207,25 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
                 </>
               )}
 
+              {/* Connected neighbor highlight indicator */}
+              {isNeighborOfSelected && !isSelected && (
+                <circle cx={p.x} cy={p.y} r={r + 4} fill="none" stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="2 2" opacity="0.8" />
+              )}
+
               <circle cx={p.x} cy={p.y} r={r + (isCenter ? 4 : 2)} fill={fill} opacity={isSelected ? 0.35 : 0.15} />
               <circle
                 cx={p.x}
                 cy={p.y}
                 r={r}
                 fill={fill}
-                stroke={isSelected ? '#ffffff' : 'rgba(255,255,255,0.2)'}
-                strokeWidth={isSelected ? 3 : isCenter ? 2 : 1}
+                stroke={isSelected ? '#ffffff' : isNeighborOfSelected ? '#38bdf8' : 'rgba(255,255,255,0.2)'}
+                strokeWidth={isSelected ? 3 : isNeighborOfSelected ? 2 : isCenter ? 2 : 1}
               />
-              {(isCenter || isHop1 || isHigh || isSelected) && (
+              {(isCenter || isHop1 || isHigh || isSelected || isNeighborOfSelected) && (
                 <text x={p.x} y={p.y + r + 13} textAnchor="middle"
-                  fill={isSelected ? '#38bdf8' : isCenter ? '#a5b4fc' : isHigh ? '#f87171' : 'rgba(148,163,184,0.8)'}
+                  fill={isSelected ? '#38bdf8' : isNeighborOfSelected ? '#7dd3fc' : isCenter ? '#a5b4fc' : isHigh ? '#f87171' : 'rgba(148,163,184,0.8)'}
                   fontSize={isSelected ? '10' : isCenter ? '10' : '8'}
-                  fontWeight={isSelected || isCenter ? '800' : '400'}
+                  fontWeight={isSelected || isCenter || isNeighborOfSelected ? '800' : '400'}
                   fontFamily="JetBrains Mono, monospace"
                 >{n.id.slice(0, 8)}</text>
               )}
@@ -226,7 +268,7 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
             >✕</button>
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', color: '#a5b4fc', fontWeight: 700, marginBottom: 6 }}>{selectedNode.id}</div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className={`badge-${(selectedNode.risk_category || 'LOW').toLowerCase()}`}>
               {selectedNode.risk_category || 'LOW'}
             </span>
@@ -234,8 +276,11 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
               <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>Score: {selectedNode.risk_score?.toFixed(1)}/100</span>
             )}
           </div>
+          <div style={{ marginTop: 6, fontSize: '0.72rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>🔗 {connectedNeighborIds.size} Visible Trade Connection{connectedNeighborIds.size === 1 ? '' : 's'}</span>
+          </div>
           {selectedNode.id === center && (
-            <div style={{ marginTop: 5, fontSize: '0.7rem', color: '#a5b4fc', fontWeight: 600 }}>★ Target Entity</div>
+            <div style={{ marginTop: 4, fontSize: '0.7rem', color: '#a5b4fc', fontWeight: 600 }}>★ Target Entity</div>
           )}
         </div>
       )}

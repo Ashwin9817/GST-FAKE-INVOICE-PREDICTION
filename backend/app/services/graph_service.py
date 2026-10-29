@@ -34,23 +34,40 @@ class GraphService:
         if self.df_txs.empty:
             return {"nodes": [{"id": center, "label": center, "type": "center"}], "edges": []}
 
-        # 1-Hop edges
+        # 1-Hop edges (direct transactions with center)
         hop1_txs = self.df_txs[
             (self.df_txs["seller_gstin"] == center) | (self.df_txs["buyer_gstin"] == center)
         ].copy()
 
         hop1_nodes = set(hop1_txs["seller_gstin"]).union(set(hop1_txs["buyer_gstin"]))
+        hop1_nodes.discard(center)
 
         all_txs = hop1_txs
-        all_nodes = hop1_nodes
 
         # 2-Hop edges if requested
-        if hops >= 2 and len(hop1_nodes) > 1:
+        if hops >= 2 and len(hop1_nodes) > 0:
             hop2_txs = self.df_txs[
-                (self.df_txs["seller_gstin"].isin(hop1_nodes)) | (self.df_txs["buyer_gstin"].isin(hop1_nodes))
+                ((self.df_txs["seller_gstin"].isin(hop1_nodes)) | (self.df_txs["buyer_gstin"].isin(hop1_nodes)))
+                & (self.df_txs["seller_gstin"] != center)
+                & (self.df_txs["buyer_gstin"] != center)
             ].copy()
             all_txs = pd.concat([hop1_txs, hop2_txs]).drop_duplicates(subset=["invoice_id"])
-            all_nodes = set(all_txs["seller_gstin"]).union(set(all_txs["buyer_gstin"]))
+
+        # Build edge list and keep track of nodes that have at least 1 edge
+        edges_list = []
+        nodes_with_edges = set([center])
+        for _, row in all_txs.iterrows():
+            s = str(row["seller_gstin"]).strip().upper()
+            t = str(row["buyer_gstin"]).strip().upper()
+            edges_list.append({
+                "id": str(row["invoice_id"]),
+                "source": s,
+                "target": t,
+                "amount": float(row.get("total_invoice_amount", 0.0)),
+                "fraud_pattern": str(row.get("fraud_pattern", "NONE"))
+            })
+            nodes_with_edges.add(s)
+            nodes_with_edges.add(t)
 
         # Load risk scores dictionary for node risk mapping
         risk_map = {}
@@ -66,9 +83,10 @@ class GraphService:
             except Exception:
                 pass
 
+        # Only include nodes that actually have edges in the network
         nodes_list = []
-        for n in all_nodes:
-            n_type = "center" if n == center else "neighbor"
+        for n in nodes_with_edges:
+            n_type = "center" if n == center else ("hop1" if n in hop1_nodes else "hop2")
             r_info = risk_map.get(n, {"risk_category": "LOW", "risk_score": 0.0})
             nodes_list.append({
                 "id": n,
@@ -76,16 +94,6 @@ class GraphService:
                 "type": n_type,
                 "risk_category": r_info["risk_category"],
                 "risk_score": r_info["risk_score"]
-            })
-
-        edges_list = []
-        for _, row in all_txs.head(100).iterrows():
-            edges_list.append({
-                "id": row["invoice_id"],
-                "source": row["seller_gstin"],
-                "target": row["buyer_gstin"],
-                "amount": float(row["total_invoice_amount"]),
-                "fraud_pattern": str(row.get("fraud_pattern", "NONE"))
             })
 
         return {

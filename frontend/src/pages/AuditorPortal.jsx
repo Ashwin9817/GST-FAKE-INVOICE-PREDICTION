@@ -4,7 +4,8 @@ import {
   AlertCircle, Network, FileText, ShieldAlert,
   ArrowUpRight, ArrowDownLeft, Activity, Layers,
   RotateCcw, Loader2, ChevronRight, Info,
-  TrendingUp, AlertTriangle, Shield, CheckCircle2, BarChart3, Settings
+  TrendingUp, AlertTriangle, Shield, CheckCircle2, BarChart3, Settings,
+  Maximize2, X
 } from 'lucide-react'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '')
@@ -297,6 +298,7 @@ export default function AuditorPortal() {
   const [alert, setAlert] = useState(null)
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [logMaximized, setLogMaximized] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -313,7 +315,7 @@ export default function AuditorPortal() {
     try {
       const [profRes, txRes, netRes, alertRes] = await Promise.all([
         fetch(`${API_BASE}/api/entities/${searchGstin}`),
-        fetch(`${API_BASE}/api/entities/${searchGstin}/transactions?limit=10`),
+        fetch(`${API_BASE}/api/entities/${searchGstin}/transactions?limit=50`),
         fetch(`${API_BASE}/api/entities/${searchGstin}/network?hops=2`),
         fetch(`${API_BASE}/api/entities/${searchGstin}/alert`)
       ])
@@ -435,7 +437,7 @@ export default function AuditorPortal() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
               {[
                 { label: 'PageRank Centrality', value: features.pagerank != null ? Number(features.pagerank).toFixed(4) : '—' },
-                { label: 'Louvain Community', value: features.community_id != null ? `COMM_${String(features.community_id).slice(0,4)}` : '—' },
+                { label: 'Louvain Community', value: features.community_id != null ? String(features.community_id) : '—' },
                 { label: 'Circular Loop', value: features.has_loop ? `${features.shortest_loop_dist}-Hop Detected` : 'None Detected' },
                 { label: 'Out-Degree (Sales)', value: features.out_degree ?? '—' },
                 { label: 'In-Degree (Purchases)', value: features.in_degree ?? '—' },
@@ -486,61 +488,249 @@ export default function AuditorPortal() {
 
           {/* Transaction Log */}
           {txs.length > 0 && (
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
-                <FileText size={18} color="#06b6d4" />
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 700 }}>Recent Invoice Log</h3>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Invoice ID</th>
-                      <th>Date</th>
-                      <th>Direction</th>
-                      <th>Counterparty GSTIN</th>
-                      <th>Taxable Amount</th>
-                      <th>Fraud Pattern</th>
-                      <th>Risk</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {txs.map((tx, i) => {
-                      const isPatternFraud = tx.fraud_pattern && tx.fraud_pattern !== 'NONE' && tx.fraud_pattern !== 'nan'
-                      const cCat = tx.counterparty_risk_category || 'LOW'
-                      const isHigh = isPatternFraud || cCat === 'HIGH'
-                      const isMed = !isHigh && cCat === 'MEDIUM'
-                      const badgeClass = isHigh ? 'badge-high' : isMed ? 'badge-medium' : 'badge-low'
-                      const badgeText = isPatternFraud
-                        ? `HIGH (${tx.fraud_pattern})`
-                        : cCat === 'HIGH' ? 'HIGH (COUNTERPARTY)'
-                        : cCat === 'MEDIUM' ? 'MEDIUM (COUNTERPARTY)' : 'NORMAL'
+            <>
+              <div className="card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <FileText size={18} color="#06b6d4" />
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 700 }}>Recent Invoice Log</h3>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.04)', padding: '0.15rem 0.55rem', borderRadius: '999px', border: '1px solid var(--border-glass)' }}>
+                      {txs.length} records
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setLogMaximized(true)}
+                    title="Expand to full screen"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.35rem',
+                      background: 'rgba(6,182,212,0.1)',
+                      border: '1px solid rgba(6,182,212,0.3)',
+                      borderRadius: '7px',
+                      padding: '0.35rem 0.75rem',
+                      color: '#06b6d4',
+                      cursor: 'pointer',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(6,182,212,0.2)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.3)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(6,182,212,0.1)'; e.currentTarget.style.boxShadow = 'none' }}
+                  >
+                    <Maximize2 size={13} />
+                    Maximize
+                  </button>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Invoice ID</th>
+                        <th>Date</th>
+                        <th>Direction</th>
+                        <th>Counterparty GSTIN</th>
+                        <th>Taxable Amount</th>
+                        <th>Fraud Pattern</th>
+                        <th>Risk</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {txs.map((tx, i) => {
+                        const isPatternFraud = tx.fraud_pattern && tx.fraud_pattern !== 'NONE' && tx.fraud_pattern !== 'nan'
+                        const cCat = tx.counterparty_risk_category || 'LOW'
+                        const isHigh = isPatternFraud || cCat === 'HIGH'
+                        const isMed = !isHigh && cCat === 'MEDIUM'
+                        const badgeClass = isHigh ? 'badge-high' : isMed ? 'badge-medium' : 'badge-low'
+                        const badgeText = isPatternFraud
+                          ? `HIGH (${tx.fraud_pattern})`
+                          : cCat === 'HIGH' ? 'HIGH (COUNTERPARTY)'
+                          : cCat === 'MEDIUM' ? 'MEDIUM (COUNTERPARTY)' : 'NORMAL'
 
-                      return (
-                        <tr key={i}>
-                          <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#a5b4fc' }}>{tx.invoice_id}</span></td>
-                          <td style={{ fontSize: '0.8rem' }}>{String(tx.invoice_date).slice(0, 16)}</td>
-                          <td>
-                            {tx.direction === 'OUTGOING'
-                              ? <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#f87171' }}><ArrowUpRight size={14} />Sale</span>
-                              : <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#34d399' }}><ArrowDownLeft size={14} />Purchase</span>
-                            }
-                          </td>
-                          <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{tx.direction === 'OUTGOING' ? tx.buyer_gstin : tx.seller_gstin}</span></td>
-                          <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>₹{Number(tx.taxable_amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                          <td>
-                            <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '5px', background: isPatternFraud ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)', color: isPatternFraud ? '#f87171' : 'var(--text-dim)', border: `1px solid ${isPatternFraud ? 'rgba(239,68,68,0.3)' : 'var(--border-glass)'}` }}>
-                              {isPatternFraud ? tx.fraud_pattern : 'STANDARD_TRADE'}
-                            </span>
-                          </td>
-                          <td><span className={badgeClass}>{badgeText}</span></td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                        return (
+                          <tr key={i}>
+                            <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#a5b4fc' }}>{tx.invoice_id}</span></td>
+                            <td style={{ fontSize: '0.8rem' }}>{String(tx.invoice_date).slice(0, 16)}</td>
+                            <td>
+                              {tx.direction === 'OUTGOING'
+                                ? <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#f87171' }}><ArrowUpRight size={14} />Sale</span>
+                                : <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#34d399' }}><ArrowDownLeft size={14} />Purchase</span>
+                              }
+                            </td>
+                            <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{tx.direction === 'OUTGOING' ? tx.buyer_gstin : tx.seller_gstin}</span></td>
+                            <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>₹{Number(tx.taxable_amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                            <td>
+                              <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '5px', background: isPatternFraud ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)', color: isPatternFraud ? '#f87171' : 'var(--text-dim)', border: `1px solid ${isPatternFraud ? 'rgba(239,68,68,0.3)' : 'var(--border-glass)'}` }}>
+                                {isPatternFraud ? tx.fraud_pattern : 'STANDARD_TRADE'}
+                              </span>
+                            </td>
+                            <td><span className={badgeClass}>{badgeText}</span></td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+
+              {/* ── Full-Screen Invoice Log Modal ── */}
+              {logMaximized && (
+                <div
+                  onClick={e => { if (e.target === e.currentTarget) setLogMaximized(false) }}
+                  style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    background: 'rgba(5,10,22,0.88)',
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '1.5rem',
+                    animation: 'fadeIn 0.18s ease'
+                  }}
+                >
+                  <div style={{
+                    width: '100%', maxWidth: '1300px',
+                    maxHeight: '92vh',
+                    background: 'var(--surface-glass)',
+                    border: '1px solid rgba(6,182,212,0.35)',
+                    borderRadius: '16px',
+                    boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(6,182,212,0.1)',
+                    display: 'flex', flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Modal Header */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '1rem 1.5rem',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                      background: 'rgba(6,182,212,0.05)',
+                      flexShrink: 0
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <FileText size={20} color="#06b6d4" />
+                        <div>
+                          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                            Full Invoice Log
+                          </h2>
+                          <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                            GSTIN: <span style={{ fontFamily: 'var(--font-mono)', color: '#06b6d4' }}>{gstin}</span>
+                            &nbsp;·&nbsp;{txs.length} records
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setLogMaximized(false)}
+                        title="Close"
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          width: 36, height: 36,
+                          background: 'rgba(239,68,68,0.1)',
+                          border: '1px solid rgba(239,68,68,0.3)',
+                          borderRadius: '8px',
+                          color: '#f87171',
+                          cursor: 'pointer',
+                          transition: 'all 0.18s'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)' }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    {/* Scrollable Table */}
+                    <div style={{ overflowY: 'auto', overflowX: 'auto', flex: 1 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: 'rgba(5,10,22,0.97)', backdropFilter: 'blur(8px)' }}>
+                          <tr>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>#</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Invoice ID</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Date</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Direction</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Counterparty GSTIN</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Taxable Amount</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Tax Amount</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Total</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Fraud Pattern</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>Risk</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {txs.map((tx, i) => {
+                            const isPatternFraud = tx.fraud_pattern && tx.fraud_pattern !== 'NONE' && tx.fraud_pattern !== 'nan'
+                            const cCat = tx.counterparty_risk_category || 'LOW'
+                            const isHigh = isPatternFraud || cCat === 'HIGH'
+                            const isMed = !isHigh && cCat === 'MEDIUM'
+                            const badgeClass = isHigh ? 'badge-high' : isMed ? 'badge-medium' : 'badge-low'
+                            const badgeText = isPatternFraud
+                              ? `HIGH (${String(tx.fraud_pattern).toUpperCase()})`
+                              : cCat === 'HIGH' ? 'HIGH (COUNTERPARTY)'
+                              : cCat === 'MEDIUM' ? 'MEDIUM (COUNTERPARTY)' : 'NORMAL'
+                            const rowBg = isHigh ? 'rgba(239,68,68,0.04)' : isMed ? 'rgba(245,158,11,0.03)' : 'transparent'
+                            const igst = Number(tx.igst || 0)
+                            const cgst = Number(tx.cgst || 0)
+                            const sgst = Number(tx.sgst || 0)
+                            const taxAmt = igst > 0 ? igst : cgst + sgst
+
+                            return (
+                              <tr key={i} style={{ background: rowBg, borderBottom: '1px solid rgba(255,255,255,0.035)' }}
+                                onMouseEnter={e => e.currentTarget.style.background = isHigh ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)'}
+                                onMouseLeave={e => e.currentTarget.style.background = rowBg}
+                              >
+                                <td style={{ padding: '0.6rem 1rem', fontSize: '0.72rem', color: 'var(--text-dim)' }}>{i + 1}</td>
+                                <td style={{ padding: '0.6rem 1rem' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: '#a5b4fc' }}>{tx.invoice_id}</span></td>
+                                <td style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{String(tx.invoice_date).slice(0, 16)}</td>
+                                <td style={{ padding: '0.6rem 1rem' }}>
+                                  {tx.direction === 'OUTGOING'
+                                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#f87171', fontSize: '0.82rem' }}><ArrowUpRight size={13} />Sale</span>
+                                    : <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#34d399', fontSize: '0.82rem' }}><ArrowDownLeft size={13} />Purchase</span>
+                                  }
+                                </td>
+                                <td style={{ padding: '0.6rem 1rem' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tx.direction === 'OUTGOING' ? tx.buyer_gstin : tx.seller_gstin}</span></td>
+                                <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                                  ₹{Number(tx.taxable_amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td style={{ padding: '0.6rem 1rem', fontSize: '0.82rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                                  ₹{taxAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: '#06b6d4', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                                  ₹{Number(tx.total_invoice_amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td style={{ padding: '0.6rem 1rem' }}>
+                                  <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.55rem', borderRadius: '5px', background: isPatternFraud ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)', color: isPatternFraud ? '#f87171' : 'var(--text-dim)', border: `1px solid ${isPatternFraud ? 'rgba(239,68,68,0.3)' : 'var(--border-glass)'}`, whiteSpace: 'nowrap' }}>
+                                    {isPatternFraud ? String(tx.fraud_pattern).toUpperCase() : 'STANDARD_TRADE'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '0.6rem 1rem' }}><span className={badgeClass}>{badgeText}</span></td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Modal Footer */}
+                    <div style={{
+                      padding: '0.75rem 1.5rem',
+                      borderTop: '1px solid rgba(255,255,255,0.06)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      flexShrink: 0,
+                      background: 'rgba(5,10,22,0.5)'
+                    }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                        Showing all <strong style={{ color: 'var(--text-muted)' }}>{txs.length}</strong> invoice records · Click outside or ✕ to close
+                      </span>
+                      <button
+                        onClick={() => setLogMaximized(false)}
+                        style={{
+                          padding: '0.4rem 1.1rem', borderRadius: '7px',
+                          background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.3)',
+                          color: '#06b6d4', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

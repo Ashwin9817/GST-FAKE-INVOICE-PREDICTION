@@ -24,7 +24,9 @@ export const USERS = {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('gst_fraud_user')
+      // Clear legacy permanent localStorage to ensure browser close requires login
+      localStorage.removeItem('gst_fraud_user')
+      const saved = sessionStorage.getItem('gst_fraud_user')
       return saved ? JSON.parse(saved) : null
     } catch {
       return null
@@ -38,14 +40,14 @@ export function AuthProvider({ children }) {
     if (cleanEmail === USERS.auditor.email && cleanPass === USERS.auditor.password) {
       const u = USERS.auditor
       setUser(u)
-      localStorage.setItem('gst_fraud_user', JSON.stringify(u))
+      sessionStorage.setItem('gst_fraud_user', JSON.stringify(u))
       return { success: true, user: u }
     }
 
     if (cleanEmail === USERS.supplier.email && cleanPass === USERS.supplier.password) {
       const u = USERS.supplier
       setUser(u)
-      localStorage.setItem('gst_fraud_user', JSON.stringify(u))
+      sessionStorage.setItem('gst_fraud_user', JSON.stringify(u))
       return { success: true, user: u }
     }
 
@@ -54,6 +56,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     setUser(null)
+    sessionStorage.removeItem('gst_fraud_user')
     localStorage.removeItem('gst_fraud_user')
   }
 

@@ -11,10 +11,9 @@ import { ShieldAlert, Lock, ArrowRight, ShieldCheck, Search, Building2 } from 'l
 // Require Authentication Wrapper
 function RequireAuth({ children }) {
   const { user } = useAuth()
-  const location = useLocation()
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to="/login" replace />
   }
 
   return children
@@ -23,10 +22,9 @@ function RequireAuth({ children }) {
 // Require Specific Role Wrapper
 function RequireRole({ allowedRole, children }) {
   const { user } = useAuth()
-  const location = useLocation()
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to="/login" replace />
   }
 
   if (user.role !== allowedRole) {

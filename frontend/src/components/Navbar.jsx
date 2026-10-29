@@ -24,27 +24,29 @@ export default function Navbar() {
         </div>
       </Link>
 
-      <div className="nav-links">
-        <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <LayoutDashboard size={17} />
-          <span>Dashboard</span>
-        </NavLink>
-
-        {/* Role Based Navigation */}
-        {(!user || user.role === 'auditor') && (
-          <NavLink to="/auditor" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            <Search size={17} />
-            <span>Tax Auditor Portal</span>
+      {/* Role-based navigation links only shown when logged in */}
+      {user && (
+        <div className="nav-links">
+          <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <LayoutDashboard size={17} />
+            <span>Dashboard</span>
           </NavLink>
-        )}
 
-        {(!user || user.role === 'supplier') && (
-          <NavLink to="/msme" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            <Building2 size={17} />
-            <span>MSME Supplier Risk</span>
-          </NavLink>
-        )}
-      </div>
+          {user.role === 'auditor' && (
+            <NavLink to="/auditor" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              <Search size={17} />
+              <span>Tax Auditor Portal</span>
+            </NavLink>
+          )}
+
+          {user.role === 'supplier' && (
+            <NavLink to="/msme" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              <Building2 size={17} />
+              <span>MSME Supplier Risk</span>
+            </NavLink>
+          )}
+        </div>
+      )}
 
       {/* User Profile & Auth Status */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
@@ -98,16 +100,7 @@ export default function Navbar() {
               <span>Logout</span>
             </button>
           </>
-        ) : (
-          <Link
-            to="/login"
-            className="btn-primary"
-            style={{ padding: '0.4rem 0.85rem', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-          >
-            <LogIn size={15} />
-            <span>Sign In</span>
-          </Link>
-        )}
+        ) : null}
       </div>
     </nav>
   )

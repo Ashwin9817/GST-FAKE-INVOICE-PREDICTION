@@ -62,8 +62,12 @@ function AlertReasonCard({ reason }) {
 
 // ─── Network Graph ────────────────────────────────────────────────
 function NetworkGraph({ center, nodes = [], edges = [] }) {
-  const [hoveredNode, setHoveredNode] = useState(null)
+  const [selectedNode, setSelectedNode] = useState(null)
   if (!nodes || !nodes.length) return null
+
+  useEffect(() => {
+    setSelectedNode(null)
+  }, [center])
 
   const W = 800, H = 460
   const cx = W / 2, cy = H / 2
@@ -102,7 +106,7 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
   return (
     <div style={{ position: 'relative', width: '100%', background: 'rgba(255,255,255,0.02)', borderRadius: '14px', border: '1px solid var(--border-glass)', overflow: 'hidden' }}>
       {/* Legend */}
-      <div style={{ padding: '0.6rem 1rem', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-glass)', display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+      <div style={{ padding: '0.6rem 1rem', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-glass)', display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.72rem', color: 'var(--text-muted)', alignItems: 'center' }}>
         <span style={{ fontWeight: 700, color: 'var(--text-dim)' }}>Legend:</span>
         <span>🟣 Target Entity</span>
         <span>🔵 1-Hop Partner (direct trade)</span>
@@ -110,9 +114,10 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
         <span>🔴 High-Risk Node</span>
         <span>─── Fraud Edge</span>
         <span style={{ opacity: 0.6 }}>─── Normal Edge</span>
+        <span style={{ marginLeft: 'auto', color: '#38bdf8', fontWeight: 600 }}>💡 Click node to inspect</span>
       </div>
 
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} onClick={() => setSelectedNode(null)}>
         {/* Guide rings */}
         <circle cx={cx} cy={cy} r={r1} fill="none" stroke="rgba(99,102,241,0.15)" strokeDasharray="4 4" strokeWidth="1" />
         <circle cx={cx} cy={cy} r={r2} fill="none" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 6" strokeWidth="1" />
@@ -125,11 +130,12 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
           if (!s || !t) return null
           const isFraud = e.fraud_pattern && e.fraud_pattern !== 'NONE' && e.fraud_pattern !== 'nan'
           const toCenter = e.source === center || e.target === center
+          const isConnectedToSelected = selectedNode && (e.source === selectedNode.id || e.target === selectedNode.id)
           return (
             <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y}
-              stroke={isFraud ? '#ef4444' : toCenter ? '#6366f1' : 'rgba(255,255,255,0.12)'}
-              strokeWidth={isFraud ? 2 : toCenter ? 1.5 : 0.8}
-              strokeOpacity={isFraud ? 0.9 : toCenter ? 0.7 : 0.5}
+              stroke={isConnectedToSelected ? '#38bdf8' : isFraud ? '#ef4444' : toCenter ? '#6366f1' : 'rgba(255,255,255,0.12)'}
+              strokeWidth={isConnectedToSelected ? 2.5 : isFraud ? 2 : toCenter ? 1.5 : 0.8}
+              strokeOpacity={isConnectedToSelected ? 1 : isFraud ? 0.9 : toCenter ? 0.7 : 0.5}
             />
           )
         })}
@@ -143,20 +149,41 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
           const rCat = n.risk_category || 'LOW'
           const isHigh = rCat === 'HIGH'
           const isMed = rCat === 'MEDIUM'
+          const isSelected = selectedNode?.id === n.id
           const r = isCenter ? 18 : isHop1 ? 9 : 6
           const fill = isCenter ? '#6366f1' : isHigh ? '#ef4444' : isMed ? '#f59e0b' : isHop1 ? '#3b82f6' : 'rgba(148,163,184,0.6)'
 
           return (
             <g key={n.id} style={{ cursor: 'pointer' }}
-              onMouseEnter={() => setHoveredNode(n)}
-              onMouseLeave={() => setHoveredNode(null)}>
-              <circle cx={p.x} cy={p.y} r={r + (isCenter ? 4 : 2)} fill={fill} opacity="0.15" />
-              <circle cx={p.x} cy={p.y} r={r} fill={fill} stroke="rgba(255,255,255,0.2)" strokeWidth={isCenter ? 2 : 1} />
-              {(isCenter || isHop1 || isHigh) && (
-                <text x={p.x} y={p.y + r + 12} textAnchor="middle"
-                  fill={isCenter ? '#a5b4fc' : isHigh ? '#f87171' : 'rgba(148,163,184,0.8)'}
-                  fontSize={isCenter ? '10' : '8'}
-                  fontWeight={isCenter ? '700' : '400'}
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedNode(prev => (prev?.id === n.id ? null : n))
+              }}>
+              {/* Highlight halo when clicked */}
+              {isSelected && (
+                <>
+                  <circle cx={p.x} cy={p.y} r={r + 8} fill="none" stroke="#38bdf8" strokeWidth="2.5">
+                    <animate attributeName="r" values={`${r + 6};${r + 11};${r + 6}`} dur="2s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite" />
+                  </circle>
+                  <circle cx={p.x} cy={p.y} r={r + 6} fill="#38bdf8" opacity="0.25" />
+                </>
+              )}
+
+              <circle cx={p.x} cy={p.y} r={r + (isCenter ? 4 : 2)} fill={fill} opacity={isSelected ? 0.35 : 0.15} />
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={r}
+                fill={fill}
+                stroke={isSelected ? '#ffffff' : 'rgba(255,255,255,0.2)'}
+                strokeWidth={isSelected ? 3 : isCenter ? 2 : 1}
+              />
+              {(isCenter || isHop1 || isHigh || isSelected) && (
+                <text x={p.x} y={p.y + r + 13} textAnchor="middle"
+                  fill={isSelected ? '#38bdf8' : isCenter ? '#a5b4fc' : isHigh ? '#f87171' : 'rgba(148,163,184,0.8)'}
+                  fontSize={isSelected ? '10' : isCenter ? '10' : '8'}
+                  fontWeight={isSelected || isCenter ? '800' : '400'}
                   fontFamily="JetBrains Mono, monospace"
                 >{n.id.slice(0, 8)}</text>
               )}
@@ -165,31 +192,50 @@ function NetworkGraph({ center, nodes = [], edges = [] }) {
         })}
       </svg>
 
-      {/* Tooltip */}
-      {hoveredNode && (
+      {/* Selected Node Details Box */}
+      {selectedNode && (
         <div style={{
           position: 'absolute', bottom: 12, left: 12,
-          background: 'rgba(15,22,36,0.95)',
-          border: '1px solid var(--border-glass)',
+          background: 'rgba(15,22,36,0.96)',
+          border: '1px solid #38bdf8',
           borderRadius: '10px',
           padding: '0.75rem 1rem',
           backdropFilter: 'blur(12px)',
           fontSize: '0.8rem',
-          pointerEvents: 'none',
-          minWidth: 200
+          pointerEvents: 'auto',
+          minWidth: 220,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          zIndex: 10
         }}>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginBottom: 4 }}>ENTITY NODE</div>
-          <div style={{ fontFamily: 'var(--font-mono)', color: '#a5b4fc', fontWeight: 700, marginBottom: 6 }}>{hoveredNode.id}</div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <span className={`badge-${(hoveredNode.risk_category || 'LOW').toLowerCase()}`}>
-              {hoveredNode.risk_category || 'LOW'}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: '0.65rem', color: '#38bdf8', fontWeight: 700, letterSpacing: '0.04em' }}>
+              SELECTED NODE DETAILS
             </span>
-            {hoveredNode.risk_score != null && (
-              <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>Score: {hoveredNode.risk_score?.toFixed(1)}/100</span>
+            <button
+              onClick={() => setSelectedNode(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                padding: '0 4px',
+                lineHeight: 1
+              }}
+              title="Close"
+            >✕</button>
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', color: '#a5b4fc', fontWeight: 700, marginBottom: 6 }}>{selectedNode.id}</div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span className={`badge-${(selectedNode.risk_category || 'LOW').toLowerCase()}`}>
+              {selectedNode.risk_category || 'LOW'}
+            </span>
+            {selectedNode.risk_score != null && (
+              <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>Score: {selectedNode.risk_score?.toFixed(1)}/100</span>
             )}
           </div>
-          {hoveredNode.id === center && (
-            <div style={{ marginTop: 4, fontSize: '0.7rem', color: '#a5b4fc' }}>★ Target Entity</div>
+          {selectedNode.id === center && (
+            <div style={{ marginTop: 5, fontSize: '0.7rem', color: '#a5b4fc', fontWeight: 600 }}>★ Target Entity</div>
           )}
         </div>
       )}

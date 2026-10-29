@@ -19,8 +19,8 @@ export default function Login() {
     setError('')
     const res = login(email, password)
     if (res.success) {
-      const targetPath = from || (res.user.role === 'auditor' ? '/auditor' : '/msme')
-      navigate(targetPath, { replace: true })
+      // Always open dashboard first upon login for both roles
+      navigate('/', { replace: true })
     } else {
       setError(res.message)
     }
@@ -33,8 +33,8 @@ export default function Login() {
     setPassword(preset.password)
     const res = login(preset.email, preset.password)
     if (res.success) {
-      const targetPath = from || (roleKey === 'auditor' ? '/auditor' : '/msme')
-      navigate(targetPath, { replace: true })
+      // Always open dashboard first upon login for both roles
+      navigate('/', { replace: true })
     }
   }
 
